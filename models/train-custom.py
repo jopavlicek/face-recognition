@@ -40,24 +40,17 @@ train_dataset = train_dataset.prefetch(buffer_size=AUTOTUNE)
 validation_dataset = validation_dataset.prefetch(buffer_size=AUTOTUNE)
 
 # Data augmentation
-# Helps the model to not fixate on certain lip or eye position
 data_augmentation = tf.keras.Sequential([
     tf.keras.layers.RandomFlip("horizontal"),
     tf.keras.layers.RandomRotation(0.1),
     tf.keras.layers.RandomZoom(0.1),
 ])
 
-# Normalization
-normalization_layer = tf.keras.layers.Rescaling(1./255)
-
-train_dataset = train_dataset.map(lambda x, y: (normalization_layer(x), y))
-validation_dataset = validation_dataset.map(lambda x, y: (normalization_layer(x), y))
-
-# BatchNormalization (stabilization) a Dropout (overfitting protection).
+# Architektura modelu
 model = Sequential([
-    # Input layer with augmentation
     tf.keras.layers.Input(shape=(48, 48, 1)),
     data_augmentation,
+    tf.keras.layers.Rescaling(1./255),  # Normalizace probíhá bezpečně až tady
 
     # 1. Block
     Conv2D(32, (3, 3), activation='relu', padding='same'),
@@ -77,6 +70,14 @@ model = Sequential([
 
     # 3. Block
     Conv2D(128, (3, 3), activation='relu', padding='same'),
+    BatchNormalization(),
+    Conv2D(128, (3, 3), activation='relu', padding='same'),
+    BatchNormalization(),
+    MaxPooling2D(pool_size=(2, 2)),
+    Dropout(0.4),
+
+    # 4. Block
+    Conv2D(256, (3, 3), activation='relu', padding='same'),
     BatchNormalization(),
     MaxPooling2D(pool_size=(2, 2)),
     Dropout(0.4),
@@ -98,7 +99,6 @@ model.compile(
 model.summary()
 
 callbacks = [
-    # Uloží pouze ten nejlepší model podle přesnosti na validačních datech
     tf.keras.callbacks.ModelCheckpoint(
         MODEL_PATH,
         monitor="val_accuracy",
@@ -106,14 +106,12 @@ callbacks = [
         mode="max",
         verbose=1
     ),
-    # Pokud se ztráta na validačních datech 3 epochy nezlepší, sníží se learning rate na polovinu
     tf.keras.callbacks.ReduceLROnPlateau(
         monitor="val_loss",
         factor=0.5,
         patience=3,
         verbose=1
     ),
-    # Pokud se přesnost nezlepší 7 epoch v kuse, trénování se ukončí a vrátí se nejlepší váhy
     tf.keras.callbacks.EarlyStopping(
         monitor="val_accuracy",
         patience=7,
@@ -122,8 +120,7 @@ callbacks = [
     )
 ]
 
-# Trénování modelu na 40 epoch
-# EarlyStopping trénování sám utne, jakmile model dosáhne maxima.
+# Trénování
 model.fit(
     train_dataset,
     validation_data=validation_dataset,
@@ -131,7 +128,7 @@ model.fit(
     callbacks=callbacks
 )
 
-# Validate model
+# Validace
 loss, accuracy = model.evaluate(validation_dataset)
 print(f"\nKonečná nejlepší validační přesnost: {accuracy:.4f}")
 print("Nejlepší model je uložen.")

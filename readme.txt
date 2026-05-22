@@ -15,6 +15,8 @@ pip install -r requirements.txt
 
 
 ==== Run Project ====
+# training scripts are located in the models folder
+# models are pre-trained so you dont have to do this again
 
 # run custom model on webcam via opencv
 python3 run-custom.py

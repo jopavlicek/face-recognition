@@ -1,6 +1,7 @@
 import cv2
 import os
 import numpy as np
+from collections import deque
 from tensorflow.keras.models import load_model
 
 MODEL_PATH = os.path.join("models", "custom.keras")
@@ -21,6 +22,9 @@ emotion_labels = [
     "Surprise"
 ]
 
+# Inicializace fronty pro vyhlazení výsledků (klouzavý průměr z 5 snímků)
+prediction_history = deque(maxlen=5)
+
 # Načtení vestavěného detektoru obličejů z OpenCV (Haar Cascade)
 face_classifier = cv2.CascadeClassifier(
     cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
@@ -30,7 +34,7 @@ face_classifier = cv2.CascadeClassifier(
 cap = cv2.VideoCapture(0)
 
 if not cap.isOpened():
-    print("Chyba: Nepodařilo se otevřekt webkameru.")
+    print("Chyba: Nepodařilo se otevřít webkameru.")
     exit()
 
 print("Spouštím detekci. Stiskni 'q' v okně videa pro ukončení.")
@@ -58,30 +62,44 @@ while True:
     if len(faces) > 0:
         (x, y, w, h) = faces[0]
 
-        # Vykreslení modrého obdélníku kolem obličeje
+        # 1. PADDING: Přidáme 15 % okraj kolem obličeje pro věrnější FER2013 výřez
+        pad_w = int(w * 0.15)
+        pad_h = int(h * 0.15)
+        
+        # Kontrola, abychom neořezávali mimo rozměry obrazu (frame)
+        img_h, img_w = gray.shape
+        x1 = max(0, x - pad_w)
+        y1 = max(0, y - pad_h)
+        x2 = min(img_w, x + w + pad_w)
+        y2 = min(img_h, y + h + pad_h)
+
+        # Vykreslení modrého obdélníku kolem detekovaného obličeje
         cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
 
-        # Oříznutí obličeje z šedotónovaného snímku
-        face = gray[y:y+h, x:x+w]
+        # Oříznutí obličeje s přidaným paddingem
+        face = gray[y1:y2, x1:x2]
 
-        # Cílová velikost pro tvůj custom model: 48x48 pixelů
+        # Cílová velikost pro model: 48x48 pixelů
         face = cv2.resize(face, (48, 48))
 
-        # POZOR ZDE: Pro custom model musíme dělit 255.0, 
-        # protože model očekává hodnoty v rozsahu 0.0 až 1.0!
-        face = face.astype("float32") / 255.0
+        # Převedeme na float, ale UŽ NEDĚLÍME 255.0 (dělá to vrstva v modelu)
+        face = face.astype("float32")
 
         # Přidání rozměrů pro batch size a kanál -> vznikne tvar (1, 48, 48, 1)
         face = np.expand_dims(face, axis=-1)
         face = np.expand_dims(face, axis=0)
 
-        # Předpověď emoce
-        prediction = model.predict(face, verbose=0)
+        # Předpověď emoce (vrátí pole pravděpodobností pro každou třídu)
+        raw_prediction = model.predict(face, verbose=0)[0]
+        
+        # 2. VYHLAZENÍ: Uložíme předpověď do historie a spočítáme průměr
+        prediction_history.append(raw_prediction)
+        smoothed_prediction = np.mean(prediction_history, axis=0)
 
-        # Získání indexu nejpravděpodobnější emoce a její úspěšnosti (confidence)
-        emotion_index = np.argmax(prediction)
+        # Získání indexu nejpravděpodobnější emoce a její úspěšnosti z vyhlazených dat
+        emotion_index = np.argmax(smoothed_prediction)
         emotion = emotion_labels[emotion_index]
-        confidence = np.max(prediction)
+        confidence = smoothed_prediction[emotion_index]
 
         # Příprava textu (např. "Happy (0.85)")
         text = f"{emotion} ({confidence:.2f})"
@@ -96,6 +114,9 @@ while True:
             (0, 255, 0),
             2
         )
+    else:
+        # Pokud model ztratí obličej, vymažeme historii, aby stará emoce "nedosluhovala" na novém člověku
+        prediction_history.clear()
 
     # Zobrazení výsledného obrazu v okně
     cv2.imshow("Emotion Detection (Custom CNN 48x48)", frame)
