@@ -73,8 +73,8 @@ while True:
         x2 = min(img_w, x + w + pad_w)
         y2 = min(img_h, y + h + pad_h)
 
-        # Vykreslení modrého obdélníku kolem detekovaného obličeje
-        cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
+        # Vykreslení obdélníku kolem detekovaného obličeje
+        cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 255), 2)
 
         # Oříznutí obličeje s přidaným paddingem
         face = gray[y1:y2, x1:x2]
@@ -111,7 +111,7 @@ while True:
             (x, y - 10),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.9,
-            (0, 255, 0),
+            (255, 0, 255),
             2
         )
     else:

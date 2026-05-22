@@ -65,9 +65,9 @@ while True:
         confidence = smoothed_prediction[emotion_index]
 
         # Vykreslení
-        cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 165, 255), 2)
+        cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 255), 2)
         text = f"{emotion} ({confidence:.2f})"
-        cv2.putText(frame, text, (x, y - 12), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+        cv2.putText(frame, text, (x, y - 12), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
     else:
         prediction_history.clear()
 

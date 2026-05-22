@@ -1,17 +1,23 @@
 import os
+import json
 import tensorflow as tf
+import matplotlib.pyplot as plt
 from tensorflow.keras.utils import image_dataset_from_directory
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout, BatchNormalization
 
 # Path config
 MODEL_PATH = os.path.join("models", "custom.keras")
+HISTORY_SAVE_PATH = os.path.join("models", "custom-history.json")
 TRAIN_PATH = os.path.join("dataset", "train")
 TEST_PATH = os.path.join("dataset", "test")
 
 # Seed setting for reproduction
 SEED = 42
 tf.random.set_seed(SEED)
+
+# Zajistíme, že složka pro modely existuje
+os.makedirs("models", exist_ok=True)
 
 # Load datasets
 train_dataset = image_dataset_from_directory(
@@ -121,14 +127,60 @@ callbacks = [
 ]
 
 # Trénování
-model.fit(
+print("\n--- Spuštění trénování custom modelu ---")
+history = model.fit(
     train_dataset,
     validation_data=validation_dataset,
     epochs=40,
     callbacks=callbacks
 )
 
-# Validace
+# Validace s nejlepšími obnovenými váhami
 loss, accuracy = model.evaluate(validation_dataset)
 print(f"\nKonečná nejlepší validační přesnost: {accuracy:.4f}")
-print("Nejlepší model je uložen.")
+
+# =========================
+# Ukládání historie do JSON
+# =========================
+print("\n--- Ukládání historie trénování ---")
+
+# Převedeme float32 hodnoty z historie na standardní Python float, aby šly uložit do JSON
+history_dict = {}
+for key, values in history.history.items():
+    history_dict[key] = [float(v) for v in values]
+
+with open(HISTORY_SAVE_PATH, "w") as f:
+    json.dump(history_dict, f)
+
+print(f"Historie trénování úspěšně uložena do: {HISTORY_SAVE_PATH}")
+print(f"Nejlepší model je uložen v: {MODEL_PATH}")
+
+# =========================
+# Generování grafů
+# =========================
+epochs_range = range(len(history_dict["accuracy"]))
+
+plt.figure(figsize=(14, 6))
+
+# Graf pro Loss (Chybovost)
+plt.subplot(1, 2, 1)
+plt.plot(epochs_range, history_dict["loss"], label="Train Loss", color="#1f77b4", linewidth=2)
+plt.plot(epochs_range, history_dict["val_loss"], label="Val Loss", color="#ff7f0e", linewidth=2)
+plt.title("Custom Model: Profil chybovosti (Loss)")
+plt.xlabel("Epocha")
+plt.ylabel("Loss")
+plt.legend()
+plt.grid(True, linestyle=":", alpha=0.6)
+
+# Graf pro Accuracy (Přesnost)
+plt.subplot(1, 2, 2)
+plt.plot(epochs_range, history_dict["accuracy"], label="Train Accuracy", color="#2ca02c", linewidth=2)
+plt.plot(epochs_range, history_dict["val_accuracy"], label="Val Accuracy", color="#d62728", linewidth=2)
+plt.title("Custom Model: Profil přesnosti (Accuracy)")
+plt.xlabel("Epocha")
+plt.ylabel("Accuracy")
+plt.legend()
+plt.grid(True, linestyle=":", alpha=0.6)
+
+plt.tight_layout()
+plt.show()
