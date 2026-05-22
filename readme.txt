@@ -1,11 +1,11 @@
 ==================================================
-==    NEURAL NETWORKS FACE RECOGNITION PROJECT  ==
+==   NEURAL NETWORKS FACE RECOGNITION PROJECT   ==
 ==================================================
 
 ==== INSTALLATION ====
 # project was built on Python 3.11.15
 # anything newer may cause problems with tensorflow
-# you can use pyenv to use multiple python versions
+# you can use pyenv to install multiple python versions
 
 # 1. create venv
 python -m venv .venv
@@ -23,8 +23,8 @@ pip install -r requirements-macos.txt
 # training scripts are located in the models folder
 # models are pre-trained so you dont have to do this again
 
-# run CUSTOM model on webcam via opencv
+# run CUSTOM model on webcam via opencv (more accurate)
 python3 run-custom.py
 
-# run MOBILENET model on webcam via opencv
+# run MOBILENET model on webcam via opencv (less accurate)
 python3 run-mobilenet.py
